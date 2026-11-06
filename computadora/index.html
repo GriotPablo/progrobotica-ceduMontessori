@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La computadora y los datos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Plan: aula proyectada — fondo claro azulado, tinta marino, acento cobalto; 4 colores por grupo de partes.
+     Layout: nav fija, dos secciones a lo ancho (1. partes, 2. contar datos). */
+  --bg:#F3F5FA; --surface:#FFFFFF; --ink:#14213D; --muted:#5A6378; --line:#D9DEEA; --accent:#2747B8;
+  --in:#0E8A7C; --proc:#C8461A; --out:#2F64D6; --mem:#A86A00; --hit:#FFF1C9; --good:#1F8A4C; --bad:#C0352B;
+  --display:"Bricolage Grotesque",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1524; --surface:#18203A; --ink:#E8ECF7; --muted:#9AA4BD; --line:#2C3656; --accent:#8EA6FF;
+  --in:#3CC7B5; --proc:#FF8A5B; --out:#7FA6FF; --mem:#E7B44A; --hit:#3D3410; --good:#4CC983; --bad:#FF7A6E; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0F1524; --surface:#18203A; --ink:#E8ECF7; --muted:#9AA4BD; --line:#2C3656; --accent:#8EA6FF;
+  --in:#3CC7B5; --proc:#FF8A5B; --out:#7FA6FF; --mem:#E7B44A; --hit:#3D3410; --good:#4CC983; --bad:#FF7A6E; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:18px/1.5 var(--body)}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(28px,4vw,44px);font-weight:800}
+h2{font-size:clamp(24px,3vw,34px);font-weight:800}
+h3{font-size:21px;font-weight:600}
+p{margin:0}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+nav{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;gap:8px;align-items:center;min-height:56px;flex-wrap:wrap}
+nav strong{font-family:var(--display);margin-right:auto}
+nav a{color:var(--ink);text-decoration:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
+nav a:hover{border-color:var(--accent)}
+header{padding:36px 0 8px}
+header p{color:var(--muted);max-width:62ch;margin-top:8px}
+section{padding:32px 0}
+.sec-head{display:flex;gap:14px;align-items:baseline;margin-bottom:6px}
+.sec-num{font-family:var(--display);font-weight:800;color:var(--accent);font-size:20px}
+.lead{color:var(--muted);max-width:68ch;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+/* diagram */
+#pc{width:100%;height:auto;display:block}
+#pc .part{cursor:pointer}
+#pc .part .shape{fill:var(--surface);stroke:var(--ink);stroke-width:2.5;transition:fill .2s}
+#pc .part .fillk{fill:var(--line)}
+#pc .part text{fill:var(--ink);font:700 15px var(--body);pointer-events:none}
+#pc .part:hover .shape,#pc .part:focus .shape{stroke:var(--accent);stroke-width:4}
+#pc .part.sel .shape{stroke-width:5}
+#pc.colors .part[data-cat="in"] .shape{fill:color-mix(in srgb,var(--in) 28%,var(--surface))}
+#pc.colors .part[data-cat="proc"] .shape{fill:color-mix(in srgb,var(--proc) 28%,var(--surface))}
+#pc.colors .part[data-cat="out"] .shape{fill:color-mix(in srgb,var(--out) 28%,var(--surface))}
+#pc.colors .part[data-cat="mem"] .shape{fill:color-mix(in srgb,var(--mem) 28%,var(--surface))}
+#pc .casebg{fill:var(--bg);stroke:var(--ink);stroke-width:2.5}
+#pc .soft{fill:none;stroke:var(--muted);stroke-width:2}
+#pc .lbl{fill:var(--muted);font:700 13px var(--body)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:15px;border:2px solid currentColor}
+.c-in{color:var(--in)} .c-proc{color:var(--proc)} .c-out{color:var(--out)} .c-mem{color:var(--mem)}
+.info h3{margin:8px 0 6px;font-size:26px}
+.info p{margin-bottom:10px}
+.info .ex{color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:2px solid var(--accent);background:var(--accent);color:var(--surface);padding:8px 16px;border-radius:10px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+/* flow */
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch;margin-top:20px}
+.flow .box{border-radius:12px;padding:14px;border:2px solid currentColor;background:var(--surface)}
+.flow .box b{display:block;font-family:var(--display);font-size:20px}
+.flow .box span{color:var(--ink);font-size:16px}
+.flow .arr{align-self:center;font-size:28px;color:var(--muted)}
+.flow .memrow{grid-column:1/-1}
+@media (max-width:700px){.flow{grid-template-columns:1fr}.flow .arr{transform:rotate(90deg);justify-self:center}}
+/* quiz */
+.quiz{margin-top:20px}
+.quiz .q{font-family:var(--display);font-size:30px;font-weight:800;margin:6px 0 12px}
+.quiz .opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.quiz .opts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.quiz .opts button{border:2px solid currentColor;background:var(--surface);border-radius:12px;padding:12px;font-weight:700}
+.quiz .opts button:hover{background:var(--bg)}
+.fb{min-height:28px;margin-top:10px;font-weight:700}
+.fb.ok{color:var(--good)} .fb.no{color:var(--bad)}
+.score{font-variant-numeric:tabular-nums;color:var(--muted)}
+.turn{display:inline-block;margin-top:8px;padding:4px 12px;border-radius:999px;background:var(--accent);color:var(--surface);font-weight:700}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+.team{border:2px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.team.now{border-color:var(--accent)}
+.team.win{border-color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--surface))}
+.team b{font-family:var(--display);font-size:30px;font-variant-numeric:tabular-nums}
+.team span{font-weight:700}
+/* data */
+.challenge{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px);gap:20px}
+@media (max-width:860px){.challenge{grid-template-columns:1fr}}
+.qbig{font-family:var(--display);font-size:clamp(24px,3vw,32px);font-weight:800;margin:6px 0 14px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.tabs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:15px}
+.tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--surface)}
+.clock{font-family:var(--display);font-size:56px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.versus{display:grid;gap:12px;margin-top:14px}
+.vs{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;font-variant-numeric:tabular-nums}
+.bar{height:22px;border-radius:6px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;transition:width .6s}
+.bar.h i{background:var(--proc)} .bar.c i{background:var(--in)}
+.result{font-family:var(--display);font-size:22px;font-weight:800;margin-top:12px}
+.formula{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;font-size:15px;overflow-x:auto;white-space:nowrap}
+label.inp{display:grid;gap:4px;font-size:15px;color:var(--muted)}
+label.inp input,label.inp select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface)}
+.tablebox{overflow:auto;max-height:560px;scroll-margin-top:72px;margin-top:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:16px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface);font-size:14px;color:var(--muted);cursor:pointer;user-select:none}
+th .col{display:inline-block;min-width:18px;font-weight:700;color:var(--accent)}
+td.num,th.num{text-align:right}
+td.rn{color:var(--muted);font-size:13px}
+tr.hit td{background:var(--hit)}
+tr.dim td{opacity:.35}
+.more{padding:10px;color:var(--muted);font-size:15px}
+.explore{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:10px}
+@media (max-width:860px){.explore{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.count{font-family:var(--display);font-size:40px;font-weight:800;font-variant-numeric:tabular-nums}
+.groups{display:grid;gap:6px;margin-top:10px}
+.g{display:grid;grid-template-columns:120px 1fr 40px;gap:8px;align-items:center;font-size:15px}
+.g .bar i{background:var(--accent)}
+.g b{text-align:right;font-variant-numeric:tabular-nums}
+footer{padding:24px 0 40px;color:var(--muted);font-size:15px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<nav><div class="wrap"><strong>Programación y Robótica · 1° de secundaria</strong><a href="#partes">1. Partes de la computadora</a><a href="#datos">2. Contar con datos</a></div></nav>
+
+<div class="wrap">
+<header>
+  <h1>La computadora y los datos</h1>
+  <p>Primero repasamos qué hace cada parte de la computadora. Después la ponemos a prueba: ¿quién cuenta más rápido en una tabla de animales, el grupo o la computadora?</p>
+</header>
+
+<section id="partes">
+  <div class="sec-head"><span class="sec-num">01</span><h2>Partes de la computadora</h2></div>
+  <p class="lead">Toda computadora hace cuatro cosas: recibe información (entrada), la procesa, nos muestra el resultado (salida) y la guarda (memoria y almacenamiento). Toca una parte para ver qué hace.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <svg id="pc" viewBox="0 0 900 470" role="img" aria-label="Diagrama de una computadora de escritorio con sus partes">
+        <!-- monitor -->
+        <g class="part" data-id="monitor" data-cat="out" tabindex="0" role="button" aria-label="Monitor">
+          <rect class="shape" x="40" y="40" width="380" height="240" rx="14"/>
+          <rect class="fillk" x="62" y="62" width="336" height="196" rx="6" opacity=".55"/>
+          <rect class="shape" x="205" y="280" width="50" height="40"/><rect class="shape" x="150" y="318" width="160" height="14" rx="6"/>
+          <text x="230" y="168" text-anchor="middle">Monitor</text>
+        </g>
+        <!-- camera -->
+        <g class="part" data-id="camara" data-cat="in" tabindex="0" role="button" aria-label="Cámara web">
+          <rect class="shape" x="200" y="14" width="60" height="22" rx="10"/><circle cx="230" cy="25" r="6" class="fillk"/>
+          <text x="275" y="30">Cámara</text>
+        </g>
+        <!-- speakers -->
+        <g class="part" data-id="bocinas" data-cat="out" tabindex="0" role="button" aria-label="Bocinas">
+          <rect class="shape" x="440" y="160" width="62" height="130" rx="10"/><circle cx="471" cy="200" r="16" class="fillk"/><circle cx="471" cy="252" r="22" class="fillk"/>
+          <text x="471" y="312" text-anchor="middle">Bocinas</text>
+        </g>
+        <!-- mic -->
+        <g class="part" data-id="microfono" data-cat="in" tabindex="0" role="button" aria-label="Micrófono">
+          <rect class="shape" x="530" y="210" width="26" height="46" rx="13"/><rect class="shape" x="539" y="256" width="8" height="30"/><rect class="shape" x="522" y="284" width="42" height="8" rx="4"/>
+          <text x="543" y="312" text-anchor="middle">Micrófono</text>
+        </g>
+        <!-- case -->
+        <rect class="casebg" x="620" y="30" width="250" height="330" rx="14"/>
+        <text class="lbl" x="745" y="54" text-anchor="middle">GABINETE (por dentro)</text>
+        <rect class="soft" x="640" y="66" width="210" height="270" rx="8"/>
+        <g class="part" data-id="cpu" data-cat="proc" tabindex="0" role="button" aria-label="Procesador">
+          <rect class="shape" x="660" y="86" width="96" height="96" rx="8"/>
+          <rect class="fillk" x="680" y="106" width="56" height="56" rx="4"/>
+          <text x="708" y="204" text-anchor="middle">Procesador</text>
+        </g>
+        <g class="part" data-id="ram" data-cat="mem" tabindex="0" role="button" aria-label="Memoria RAM">
+          <rect class="shape" x="780" y="80" width="18" height="120" rx="3"/><rect class="shape" x="808" y="80" width="18" height="120" rx="3"/>
+          <text x="803" y="222" text-anchor="middle">RAM</text>
+        </g>
+        <g class="part" data-id="ssd" data-cat="mem" tabindex="0" role="button" aria-label="Disco SSD">
+          <rect class="shape" x="660" y="246" width="110" height="60" rx="6"/>
+          <text x="715" y="282" text-anchor="middle">Disco SSD</text>
+        </g>
+        <g class="part" data-id="usb" data-cat="mem" tabindex="0" role="button" aria-label="Memoria USB">
+          <rect class="shape" x="790" y="256" width="44" height="22" rx="4"/><rect class="shape" x="834" y="261" width="16" height="12"/>
+          <text x="812" y="300" text-anchor="middle">USB</text>
+        </g>
+        <!-- keyboard -->
+        <g class="part" data-id="teclado" data-cat="in" tabindex="0" role="button" aria-label="Teclado">
+          <rect class="shape" x="60" y="372" width="420" height="78" rx="12"/>
+          <g class="fillk" opacity=".7">
+            <rect x="80" y="386" width="380" height="12" rx="3"/><rect x="80" y="404" width="380" height="12" rx="3"/><rect x="150" y="422" width="240" height="12" rx="3"/>
+          </g>
+          <text x="270" y="446" text-anchor="middle" style="font-size:13px">Teclado</text>
+        </g>
+        <!-- mouse -->
+        <g class="part" data-id="raton" data-cat="in" tabindex="0" role="button" aria-label="Ratón">
+          <rect class="shape" x="520" y="370" width="56" height="84" rx="28"/><line x1="548" y1="372" x2="548" y2="402" class="soft"/>
+          <text x="590" y="418">Ratón</text>
+        </g>
+      </svg>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" id="toggleColors" aria-pressed="false">Colorear por grupo</button>
+      </div>
+      <div class="legend">
+        <span class="chip c-in">Entrada</span><span class="chip c-proc">Procesamiento</span><span class="chip c-out">Salida</span><span class="chip c-mem">Memoria y almacenamiento</span>
+      </div>
+    </div>
+
+    <div class="card info" id="info" aria-live="polite">
+      <span class="chip c-proc" id="infoChip">Procesamiento</span>
+      <h3 id="infoTitle">Procesador (CPU)</h3>
+      <p id="infoText">Es el cerebro de la computadora: sigue las instrucciones de los programas y hace millones de operaciones por segundo.</p>
+      <p class="ex" id="infoEx">Ejemplo: cuando cuentas animales en una tabla, el procesador revisa cada fila.</p>
+    </div>
+  </div>
+
+  <div class="flow" aria-label="Cómo viaja la información">
+    <div class="box c-in"><b>Entrada</b><span>Escribo una pregunta con el teclado o el ratón.</span></div>
+    <div class="arr" aria-hidden="true">→</div>
+    <div class="box c-proc"><b>Procesamiento</b><span>El procesador revisa todas las filas de la tabla.</span></div>
+    <div class="arr" aria-hidden="true">→</div>
+    <div class="box c-out"><b>Salida</b><span>El monitor muestra la respuesta.</span></div>
+    <div class="box c-mem memrow"><b>Memoria y almacenamiento</b><span>La RAM guarda la tabla mientras trabajamos (se borra al apagar). El disco SSD o la USB la guardan para siempre.</span></div>
+  </div>
+
+  <div class="card quiz">
+    <div class="row" style="justify-content:space-between"><h3>Reto por equipos: ¿a qué grupo pertenece?</h3><span class="score" id="qProg"></span></div>
+    <div id="qSetup">
+      <p style="color:var(--muted);margin:6px 0 12px">Cada equipo responde por turnos. Cada acierto vale 1 punto.</p>
+      <div class="row">
+        <label class="inp" style="width:170px">Número de equipos<select id="qTeams"><option>2</option><option selected>3</option><option>4</option></select></label>
+        <label class="inp" style="width:190px">Preguntas por equipo<select id="qRounds"><option>3</option><option selected>4</option><option>5</option></select></label>
+      </div>
+      <div class="row" id="qNames" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="qStart">Empezar el reto</button></div>
+    </div>
+    <div id="qPlay" hidden>
+      <div class="turn" id="qTurn"></div>
+      <div class="q" id="qItem"></div>
+      <div class="opts">
+        <button class="c-in" data-ans="in">Entrada</button>
+        <button class="c-proc" data-ans="proc">Procesamiento</button>
+        <button class="c-out" data-ans="out">Salida</button>
+        <button class="c-mem" data-ans="mem">Memoria y almacenamiento</button>
+      </div>
+      <div class="fb" id="qFb" aria-live="polite"></div>
+      <div class="row"><button class="btn" id="qNext" disabled>Siguiente pregunta</button></div>
+    </div>
+    <div id="qEnd" hidden>
+      <div class="q" id="qWinner"></div>
+      <div class="row"><button class="btn" id="qAgain">Jugar otra vez</button></div>
+    </div>
+    <div class="board" id="qBoard"></div>
+  </div>
+</section>
+
+<section id="datos">
+  <div class="sec-head"><span class="sec-num">02</span><h2>Contar con datos: grupo contra computadora</h2></div>
+  <p class="lead">Una tabla de datos tiene filas (cada animal) y columnas (sus atributos). Primero obsérvenla; después elijan una pregunta, cuenten a mano con el cronómetro y dejen que la computadora cuente.</p>
+
+  <div class="tablebox" style="margin-top:0;margin-bottom:20px" id="tablebox"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table><div class="more" id="more"></div></div>
+  <div class="card challenge">
+    <div>
+      <div class="tabs" id="chTabs" role="group" aria-label="Preguntas"></div>
+      <div class="qbig" id="chQ"></div>
+      <div class="row">
+        <button class="btn" id="startBtn">1. Empezar a contar</button>
+        <button class="btn" id="stopBtn" disabled>2. ¡Ya terminamos!</button>
+        <label class="inp" style="width:150px">Respuesta del grupo<input id="groupAns" type="number" inputmode="numeric"></label>
+        <button class="btn" id="pcBtn">3. Que cuente la computadora</button>
+      </div>
+      <div class="result" id="chRes" aria-live="polite"></div>
+      <p style="margin-top:10px;color:var(--muted);font-size:15px">Así se escribe en Excel o Google Sheets:</p>
+      <div class="formula" id="chFormula"></div>
+    </div>
+    <div>
+      <div class="clock" id="clock">0.0 s</div>
+      <div class="versus">
+        <div class="vs"><span>Grupo</span><div class="bar h"><i id="barH"></i></div><b id="tH">—</b></div>
+        <div class="vs"><span>Computadora</span><div class="bar c"><i id="barC"></i></div><b id="tC">—</b></div>
+      </div>
+      <p id="speedTxt" style="margin-top:12px;font-weight:700"></p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn ghost" id="bigBtn" aria-pressed="false">¿Y si fueran 3,600 animales?</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div><h3>Explorador: filtra y cuenta</h3><p style="color:var(--muted);font-size:15px">Combina filtros. La computadora recuenta en cuanto cambias algo.</p></div>
+      <div style="text-align:right"><div class="count" id="exCount">0</div><span style="color:var(--muted);font-size:15px" id="exOf"></span></div>
+    </div>
+    <div class="explore" id="exFilters"></div>
+    <div class="formula" id="exFormula" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:16px;justify-content:space-between">
+      <h3>Contar por grupos</h3>
+      <label class="inp" style="width:200px">Agrupar por<select id="groupBy"></select></label>
+    </div>
+    <div class="groups" id="groups"></div>
+  </div>
+
+</section>
+
+<footer>Pesos aproximados de un adulto típico. Patas: las alas y aletas no cuentan como patas.</footer>
+</div>
+
+<script>
+// ---------- Parte 1 ----------
+const CAT={in:{n:"Entrada",c:"c-in"},proc:{n:"Procesamiento",c:"c-proc"},out:{n:"Salida",c:"c-out"},mem:{n:"Memoria y almacenamiento",c:"c-mem"}};
+const PARTS={
+  monitor:{t:"Monitor",cat:"out",d:"Muestra imágenes, texto y video. Es la salida principal: así vemos lo que hizo la computadora.",e:"Ejemplo: ves el resultado de tu conteo o tu videojuego."},
+  camara:{t:"Cámara web",cat:"in",d:"Captura imágenes y video y los manda a la computadora.",e:"Ejemplo: una videollamada o una foto para tu proyecto."},
+  bocinas:{t:"Bocinas",cat:"out",d:"Convierten señales eléctricas en sonido.",e:"Ejemplo: la música y los efectos de tu juego en MakeCode."},
+  microfono:{t:"Micrófono",cat:"in",d:"Convierte tu voz en información que la computadora puede usar.",e:"Ejemplo: dictar un texto o grabar la narración de una presentación."},
+  cpu:{t:"Procesador (CPU)",cat:"proc",d:"Es el cerebro de la computadora: sigue las instrucciones de los programas y hace millones de operaciones por segundo.",e:"Ejemplo: cuando cuentas animales en una tabla, el procesador revisa cada fila."},
+  ram:{t:"Memoria RAM",cat:"mem",d:"Guarda lo que estás usando en este momento para que el procesador lo tenga a la mano. Es temporal: se borra al apagar.",e:"Ejemplo: la tabla abierta mientras la filtras."},
+  ssd:{t:"Disco SSD",cat:"mem",d:"Guarda archivos y programas de forma permanente, aunque apagues la computadora.",e:"Ejemplo: el archivo de Excel con la tabla de animales."},
+  usb:{t:"Memoria USB",cat:"mem",d:"Almacenamiento que puedes llevar contigo y conectar a otra computadora.",e:"Ejemplo: llevar tu proyecto de la escuela a tu casa."},
+  teclado:{t:"Teclado",cat:"in",d:"Introduce letras, números y órdenes a la computadora.",e:"Ejemplo: escribir la pregunta «¿cuántos mamíferos hay?»."},
+  raton:{t:"Ratón",cat:"in",d:"Mueve el puntero y permite hacer clic para elegir.",e:"Ejemplo: arrastrar bloques en MakeCode Arcade."}
+};
+const pc=document.getElementById('pc');
+function showPart(id){
+  const p=PARTS[id];
+  pc.querySelectorAll('.part').forEach(g=>g.classList.toggle('sel',g.dataset.id===id));
+  const chip=document.getElementById('infoChip');chip.className='chip '+CAT[p.cat].c;chip.textContent=CAT[p.cat].n;
+  document.getElementById('infoTitle').textContent=p.t;
+  document.getElementById('infoText').textContent=p.d;
+  document.getElementById('infoEx').textContent=p.e;
+}
+pc.querySelectorAll('.part').forEach(g=>{
+  g.addEventListener('click',()=>showPart(g.dataset.id));
+  g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showPart(g.dataset.id)}});
+});
+showPart('cpu');
+const tc=document.getElementById('toggleColors');
+tc.addEventListener('click',()=>{const on=pc.classList.toggle('colors');tc.setAttribute('aria-pressed',on);tc.textContent=on?'Quitar colores':'Colorear por grupo'});
+
+const QUIZ=[["Impresora","out"],["Escáner","in"],["Control de videojuegos","in"],["Audífonos","out"],["Disco duro","mem"],["Procesador","proc"],["Memoria RAM","mem"],["Proyector","out"],["Micrófono","in"],["Tarjeta de video (GPU)","proc","Procesa las imágenes y los gráficos de los videojuegos."],["Memoria USB","mem"],["Teclado","in"],["Bocinas","out"],["Lector de huella","in"],["Pantalla táctil","in out","Es de entrada y de salida al mismo tiempo: muestra imágenes y recibe tus toques."],["Tarjeta SD","mem"],["Cámara web","in"],["Monitor","out"],["Lector de código de barras","in"],["Impresora 3D","out"]];
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+let teams=[],qList=[],qi=0,answered=false;
+function nameInputs(){const n=+$q('qTeams').value,old=[...document.querySelectorAll('#qNames input')].map(i=>i.value);
+  $q('qNames').innerHTML=Array.from({length:n},(_,i)=>`<label class="inp" style="width:170px">Equipo ${i+1}<input id="qn${i}" value="${esc(old[i]||'Equipo '+(i+1))}"></label>`).join('')}
+function $q(id){return document.getElementById(id)}
+$q('qTeams').onchange=nameInputs;nameInputs();
+function board(win){const max=Math.max(...teams.map(t=>t.p));
+  $q('qBoard').innerHTML=teams.map((t,i)=>{const now=!win&&qList.length&&i===qi%teams.length;const w=win&&t.p===max;
+    return `<div class="team${now?' now':''}${w?' win':''}"><span>${esc(t.n)}</span><b>${t.p}</b></div>`}).join('')}
+function showQ(){answered=false;const t=teams[qi%teams.length];
+  $q('qTurn').textContent='Turno: '+t.n;$q('qItem').textContent=qList[qi][0];
+  $q('qProg').textContent='Pregunta '+(qi+1)+' de '+qList.length;
+  const fb=$q('qFb');fb.textContent='';fb.className='fb';$q('qNext').disabled=true;
+  $q('qNext').textContent=qi===qList.length-1?'Ver resultados':'Siguiente pregunta';board(false)}
+$q('qStart').onclick=()=>{const n=+$q('qTeams').value,r=+$q('qRounds').value;
+  teams=Array.from({length:n},(_,i)=>({n:($q('qn'+i).value.trim()||'Equipo '+(i+1)),p:0}));
+  qList=shuffle(QUIZ.slice()).slice(0,n*r);qi=0;
+  $q('qSetup').hidden=true;$q('qEnd').hidden=true;$q('qPlay').hidden=false;showQ()};
+document.querySelectorAll('.quiz .opts button').forEach(b=>b.addEventListener('click',()=>{
+  if(answered)return;answered=true;
+  const [name,ans,extra]=qList[qi];const ok=ans.split(' ').includes(b.dataset.ans);const t=teams[qi%teams.length];
+  if(ok)t.p++;
+  const right=ans.split(' ').map(a=>CAT[a].n).join(' y ');const fb=$q('qFb');
+  fb.className='fb '+(ok?'ok':'no');
+  fb.textContent=(ok?'¡Correcto! +1 punto para '+t.n+'. ':'Casi. ')+name+': '+right+'.'+(extra?' '+extra:'');
+  $q('qNext').disabled=false;board(false)}));
+$q('qNext').onclick=()=>{if(qi<qList.length-1){qi++;showQ()}else{
+  $q('qPlay').hidden=true;$q('qEnd').hidden=false;const max=Math.max(...teams.map(t=>t.p));const w=teams.filter(t=>t.p===max);
+  $q('qWinner').textContent=w.length>1?'¡Empate entre '+w.map(t=>t.n).join(' y ')+'!':'¡Gana '+w[0].n+' con '+max+' de '+(qList.length/teams.length)+'!';
+  $q('qProg').textContent='Reto terminado';board(true)}};
+$q('qAgain').onclick=()=>{$q('qEnd').hidden=true;$q('qSetup').hidden=false;$q('qBoard').innerHTML='';$q('qProg').textContent='';teams=[];qList=[]};
+
+// ---------- Parte 2 ----------
+const COLS=[
+ {k:"animal",n:"Animal",L:"A"},{k:"clase",n:"Clase",L:"B"},{k:"alim",n:"Alimentación",L:"C"},{k:"habitat",n:"Hábitat",L:"D"},
+ {k:"patas",n:"Patas",L:"E",num:true},{k:"vuela",n:"Vuela",L:"F"},{k:"peso",n:"Peso (kg)",L:"G",num:true},{k:"mx",n:"Vive en México",L:"H"}];
+const RAW=`Jaguar|Mamífero|Carnívoro|Selva|4|No|90|Sí
+Ajolote|Anfibio|Carnívoro|Lago|4|No|0.2|Sí
+Quetzal|Ave|Omnívoro|Bosque|2|Sí|0.2|Sí
+Águila real|Ave|Carnívoro|Montaña|2|Sí|5|Sí
+Tiburón blanco|Pez|Carnívoro|Océano|0|No|1100|Sí
+Delfín nariz de botella|Mamífero|Carnívoro|Océano|0|No|200|Sí
+Pingüino emperador|Ave|Carnívoro|Polar|2|No|30|No
+Oso polar|Mamífero|Carnívoro|Polar|4|No|400|No
+Elefante africano|Mamífero|Herbívoro|Sabana|4|No|6000|No
+Jirafa|Mamífero|Herbívoro|Sabana|4|No|1000|No
+León|Mamífero|Carnívoro|Sabana|4|No|190|No
+Cebra|Mamífero|Herbívoro|Sabana|4|No|350|No
+Cocodrilo de pantano|Reptil|Carnívoro|Río|4|No|50|Sí
+Iguana verde|Reptil|Herbívoro|Selva|4|No|4|Sí
+Tortuga del desierto|Reptil|Herbívoro|Desierto|4|No|5|Sí
+Monstruo de Gila|Reptil|Carnívoro|Desierto|4|No|0.5|Sí
+Serpiente de cascabel|Reptil|Carnívoro|Desierto|0|No|2|Sí
+Rana de ojos rojos|Anfibio|Carnívoro|Selva|4|No|0.01|Sí
+Mariposa monarca|Insecto|Herbívoro|Bosque|6|Sí|0.0005|Sí
+Abeja|Insecto|Herbívoro|Pradera|6|Sí|0.0001|Sí
+Hormiga|Insecto|Omnívoro|Bosque|6|No|0.000003|Sí
+Murciélago magueyero|Mamífero|Herbívoro|Desierto|2|Sí|0.025|Sí
+Colibrí|Ave|Omnívoro|Bosque|2|Sí|0.004|Sí
+Avestruz|Ave|Omnívoro|Sabana|2|No|120|No
+Ballena azul|Mamífero|Carnívoro|Océano|0|No|150000|Sí
+Atún aleta azul|Pez|Carnívoro|Océano|0|No|250|Sí
+Vaca|Mamífero|Herbívoro|Granja|4|No|700|Sí
+Gallina|Ave|Omnívoro|Granja|2|No|2|Sí
+Cerdo|Mamífero|Omnívoro|Granja|4|No|150|Sí
+Perro|Mamífero|Omnívoro|Casa|4|No|20|Sí
+Gato|Mamífero|Carnívoro|Casa|4|No|4|Sí
+Lobo mexicano|Mamífero|Carnívoro|Bosque|4|No|35|Sí
+Oso panda|Mamífero|Herbívoro|Bosque|4|No|100|No
+Tucán|Ave|Omnívoro|Selva|2|Sí|0.6|Sí
+Flamenco|Ave|Omnívoro|Lago|2|Sí|3|Sí
+Mono araña|Mamífero|Herbívoro|Selva|4|No|8|Sí
+Tarántula|Arácnido|Carnívoro|Desierto|8|No|0.05|Sí`;
+const BASE=RAW.split('\n').map(l=>{const f=l.split('|');return{animal:f[0],clase:f[1],alim:f[2],habitat:f[3],patas:+f[4],vuela:f[5],peso:+f[6],mx:f[7]}});
+let DATA=BASE, big=false, hits=null;
+
+const CH=[
+ {q:"¿Cuántos mamíferos hay?",p:r=>r.clase==="Mamífero",f:n=>`=CONTAR.SI(B2:B${n+1},"Mamífero")`},
+ {q:"¿Cuántos animales pueden volar?",p:r=>r.vuela==="Sí",f:n=>`=CONTAR.SI(F2:F${n+1},"Sí")`},
+ {q:"¿Cuántos carnívoros viven en México?",p:r=>r.alim==="Carnívoro"&&r.mx==="Sí",f:n=>`=CONTAR.SI.CONJUNTO(C2:C${n+1},"Carnívoro",H2:H${n+1},"Sí")`},
+ {q:"¿Cuántos animales pesan más de 100 kg?",p:r=>r.peso>100,f:n=>`=CONTAR.SI(G2:G${n+1},">100")`},
+ {q:"¿Cuántas patas suman todos los animales?",sum:"patas",f:n=>`=SUMA(E2:E${n+1})`}
+];
+let ci=0,t0=0,timer=null,humanMs=null,pcMs=null;
+const $=id=>document.getElementById(id);
+const fmtW=v=>v.toLocaleString('es-MX',{maximumFractionDigits:6});
+function fmtMs(ms){ if(ms<0.01) return "menos de 0.01 ms"; if(ms<1) return ms.toFixed(2)+" ms"; if(ms<1000) return ms.toFixed(1)+" ms"; return (ms/1000).toFixed(1)+" s"}
+
+function renderTabs(){
+  $('chTabs').innerHTML=CH.map((c,i)=>`<button aria-pressed="${i===ci}" data-i="${i}">Pregunta ${i+1}</button>`).join('');
+  $('chTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ci=+b.dataset.i;resetCh()});
+}
+function resetCh(){
+  clearInterval(timer);timer=null;humanMs=null;pcMs=null;hits=null;
+  renderTabs();$('chQ').textContent=CH[ci].q;$('chFormula').textContent=CH[ci].f(DATA.length);
+  $('clock').textContent='0.0 s';$('tH').textContent='—';$('tC').textContent='—';$('barH').style.width='0';$('barC').style.width='0';
+  $('chRes').textContent='';$('speedTxt').textContent='';$('groupAns').value='';
+  $('startBtn').disabled=false;$('stopBtn').disabled=true;renderTable();
+}
+$('startBtn').onclick=()=>{t0=performance.now();hits=null;renderTable();$('startBtn').disabled=true;$('stopBtn').disabled=false;
+  timer=setInterval(()=>$('clock').textContent=((performance.now()-t0)/1000).toFixed(1)+' s',100)};
+$('stopBtn').onclick=()=>{clearInterval(timer);timer=null;humanMs=performance.now()-t0;$('clock').textContent=(humanMs/1000).toFixed(1)+' s';
+  $('tH').textContent=(humanMs/1000).toFixed(1)+' s';$('stopBtn').disabled=true;$('groupAns').focus();drawVs()};
+$('pcBtn').onclick=()=>{
+  const c=CH[ci];
+  // medir varias repeticiones para un tiempo estable
+  const reps=200; let res=0, idx=[]; const s=performance.now();
+  for(let k=0;k<reps;k++){ if(c.sum){res=0;for(const r of DATA)res+=r[c.sum]} else {res=0;for(const r of DATA)if(c.p(r))res++} }
+  pcMs=(performance.now()-s)/reps;
+  hits=c.sum?null:new Set(DATA.map((r,i)=>c.p(r)?i:-1).filter(i=>i>=0));
+  const g=$('groupAns').value.trim();
+  let msg='La computadora contó: '+res.toLocaleString('es-MX')+'.';
+  if(g!==''){msg+= (+g===res)?' ¡El grupo acertó!':' El grupo dijo '+(+g).toLocaleString('es-MX')+'.'}
+  $('chRes').textContent=msg;$('tC').textContent=fmtMs(pcMs);drawVs();renderTable();
+  if(hits){const f=document.querySelector('#tbody tr.hit');if(f){$('tablebox').scrollIntoView({behavior:'smooth',block:'start'})}}
+};
+function drawVs(){
+  if(humanMs!=null){$('barH').style.width='100%'}
+  if(pcMs!=null){const w=humanMs?Math.max(0.6,100*pcMs/humanMs):0.6;$('barC').style.width=w+'%'}
+  if(humanMs!=null&&pcMs!=null){const x=humanMs/Math.max(pcMs,0.001);
+    $('speedTxt').textContent='La computadora fue unas '+Math.round(x).toLocaleString('es-MX')+' veces más rápida.'}
+}
+$('bigBtn').onclick=()=>{big=!big;DATA=big?Array.from({length:100},()=>BASE).flat():BASE;
+  $('bigBtn').setAttribute('aria-pressed',big);$('bigBtn').textContent=big?'Volver a '+BASE.length+' animales':'¿Y si fueran '+(BASE.length*100).toLocaleString('es-MX')+' animales?';
+  resetCh();runExplore()};
+$('bigBtn').textContent='¿Y si fueran '+(BASE.length*100).toLocaleString('es-MX')+' animales?';
+
+let sortK=null,sortDir=1;
+function renderTable(){
+  $('thead').innerHTML='<tr><th class="num">#</th>'+COLS.map(c=>`<th class="${c.num?'num':''}" data-k="${c.k}"><span class="col">${c.L}</span> ${c.n}${sortK===c.k?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
+  $('thead').querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortDir=(sortK===k)?-sortDir:1;sortK=k;renderTable()});
+  let rows=DATA.map((r,i)=>({r,i}));
+  if(sortK){rows.sort((a,b)=>{const x=a.r[sortK],y=b.r[sortK];return (typeof x==='number'?x-y:String(x).localeCompare(String(y),'es'))*sortDir})}
+  const LIMIT=40, show=big?rows.slice(0,LIMIT):rows;
+  $('tbody').innerHTML=show.map(({r,i})=>{const cls=hits?(hits.has(i)?'hit':'dim'):'';
+    return `<tr class="${cls}"><td class="num rn">${i+2}</td>`+COLS.map(c=>`<td class="${c.num?'num':''}">${c.k==='peso'?fmtW(r.peso):r[c.k]}</td>`).join('')+'</tr>'}).join('');
+  $('more').textContent=big?`Se muestran ${LIMIT} filas de ${DATA.length.toLocaleString('es-MX')}. Nadie podría contarlas a mano, pero la computadora las revisa todas.`:`${DATA.length} animales. El número de la izquierda es la fila en una hoja de cálculo (la fila 1 son los títulos).`;
+}
+
+// explorador
+const FILTERS=["clase","alim","habitat","vuela","mx"];
+$('exFilters').innerHTML=FILTERS.map(k=>{const c=COLS.find(x=>x.k===k);const vals=[...new Set(BASE.map(r=>r[k]))].sort((a,b)=>a.localeCompare(b,'es'));
+  return `<label class="inp">${c.n}<select id="f_${k}"><option value="">Todos</option>${vals.map(v=>`<option>${v}</option>`).join('')}</select></label>`}).join('');
+FILTERS.forEach(k=>$('f_'+k).onchange=runExplore);
+$('groupBy').innerHTML=["clase","alim","habitat","patas","vuela","mx"].map(k=>`<option value="${k}">${COLS.find(c=>c.k===k).n}</option>`).join('');
+$('groupBy').onchange=runExplore;
+function runExplore(){
+  const act=FILTERS.map(k=>[k,$('f_'+k).value]).filter(x=>x[1]);
+  const list=DATA.filter(r=>act.every(([k,v])=>r[k]===v));
+  $('exCount').textContent=list.length.toLocaleString('es-MX');
+  $('exOf').textContent='de '+DATA.length.toLocaleString('es-MX')+' animales';
+  const n=DATA.length+1;
+  $('exFormula').textContent=act.length===0?`=CONTARA(A2:A${n})`:act.length===1?`=CONTAR.SI(${COLS.find(c=>c.k===act[0][0]).L}2:${COLS.find(c=>c.k===act[0][0]).L}${n},"${act[0][1]}")`:
+    `=CONTAR.SI.CONJUNTO(`+act.map(([k,v])=>{const L=COLS.find(c=>c.k===k).L;return `${L}2:${L}${n},"${v}"`}).join(',')+')';
+  const gk=$('groupBy').value, m=new Map();
+  list.forEach(r=>m.set(r[gk],(m.get(r[gk])||0)+1));
+  const arr=[...m.entries()].sort((a,b)=>b[1]-a[1]), max=Math.max(1,...arr.map(a=>a[1]));
+  $('groups').innerHTML=arr.length?arr.map(([k,v])=>`<div class="g"><span>${gk==='patas'?k+' patas':k}</span><div class="bar"><i style="width:${100*v/max}%"></i></div><b>${v.toLocaleString('es-MX')}</b></div>`).join(''):'<p style="color:var(--muted)">Ningún animal cumple todos los filtros.</p>';
+}
+resetCh();runExplore();
+</script>
+</body>
+</html>
